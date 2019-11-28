@@ -1,0 +1,40 @@
+#!/bin/sh
+
+set -e
+
+# Get vars from env
+host=${MONGO_HOST}
+port=${MONGO_PORT}
+user=${MONGO_USER}
+pass=${MONGO_PASS}
+s3Uri=${AWS_S3_URI}
+
+# Check for envs required
+if [ -z "$host" ]; then
+    echo "MONGO_HOST environment variable is required"
+    exit 1
+fi
+if [ -z "$port" ]; then
+    echo "MONGO_PORT environment variable is required"
+    exit 1
+fi
+if [ -z "$user" ]; then
+    echo "MONGO_USER environment variable is required"
+    exit 1
+fi
+if [ -z "$pass" ]; then
+    echo "MONGO_PASS environment variable is required"
+    exit 1
+fi
+
+# Generate a backup name datetime based
+backup_name=$(date "+%Y-%m-%dT%H%M%S%Z")_mongodb
+
+# Dump mongodb database
+mongodump --host "$host":"$port" --username="$user" --password="$pass" --authenticationDatabase=admin --out=/"$backup_name"
+
+# Generate gzip compressed tar
+tar czf "$backup_name".tar.gz /"$backup_name"
+
+# Upload backup file to s3
+aws s3 cp /"$backup_name".tar.gz "$s3Uri"
